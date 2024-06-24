@@ -1,5 +1,6 @@
 package com.corpozulia.counting.models;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import jakarta.persistence.*;
@@ -19,6 +20,7 @@ public class BenefitItem {
     /**
      * Beneficio asociado.
      */
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "benefit_id", nullable = false)
     private Benefit benefit;

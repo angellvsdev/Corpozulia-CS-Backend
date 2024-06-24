@@ -39,7 +39,7 @@ public class User {
     private String password;
 
     @NotBlank(message = "El número de cédula es obligatorio")
-    @Pattern(regexp = "[0-9]{7,8}", message = "El número de cédula debe tener entre 7 y 8 dígitos")
+    @Pattern(regexp = "[VEJ]-?[0-9]{7,8}", message = "El número de documento debe tener entre 7 y 8 dígitos")
     @Column(nullable = false, unique = true)
     private String idNumber;
 
@@ -68,7 +68,6 @@ public class User {
     private Date creationDate;
 
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
-    @NotBlank(message = "El tipo de usuario es obligatorio")
     @Column(nullable = false)
     private String userType;
 

@@ -27,6 +27,7 @@ public class BenefitItemService {
     @Autowired
     private ItemRepository itemRepository;
 
+    @Transactional
     public BenefitItem addBenefitItem(Long benefitId, BenefitItem benefitItem) {
         Optional<Benefit> benefitOptional = benefitRepository.findById(benefitId);
         if (benefitOptional.isEmpty()) {

@@ -17,8 +17,9 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.util.Date;
 import java.util.Optional;
-
+@Transactional
 @Service
 public class BenefitService {
 	
@@ -31,7 +32,6 @@ public class BenefitService {
     @Autowired
     private RequestRepository requestRepository;
 
-    @Transactional
     public Benefit createBenefit(Long requestId, Benefit benefit) {
         Optional<Request> requestOptional = requestRepository.findById(requestId);
         if (requestOptional.isEmpty()) {
@@ -39,20 +39,28 @@ public class BenefitService {
         }
 
         Request request = requestOptional.get();
+
+        // Verificar si ya existe un beneficio para esta solicitud
         if (benefitRepository.existsByRequest(request)) {
             throw new IllegalArgumentException("User already has a benefit for this request");
         }
-
-        benefit.setUser(request.getUser());
-        benefit.setRequest(request);
-        Benefit savedBenefit = benefitRepository.save(benefit);
-
+        Benefit newBenefit = new Benefit();
+        // Asignar el usuario y la solicitud al beneficio
+        newBenefit.setUser(request.getUser());
+        newBenefit.setRequest(request);
+        newBenefit.setDetails(benefit.getDetails());
+        newBenefit.setStatus(benefit.getStatus());
+        newBenefit.setCreationDate(new Date());
+        Benefit savedBenefit = benefitRepository.save(newBenefit);
+        // Guardar el beneficio en la base de datos
+        // Si hay elementos de beneficio asociados, guardar cada uno
         if (benefit.getBenefitItems() != null) {
             for (BenefitItem benefitItem : benefit.getBenefitItems()) {
                 Optional<Item> itemOptional = itemRepository.findById(benefitItem.getItem().getId());
                 if (itemOptional.isEmpty()) {
                     throw new IllegalArgumentException("Item not found");
                 }
+                // Asignar el beneficio y el item al BenefitItem y guardarlo
                 benefitItem.setBenefit(savedBenefit);
                 benefitItem.setItem(itemOptional.get());
                 benefitItemRepository.save(benefitItem);
@@ -61,6 +69,7 @@ public class BenefitService {
 
         return savedBenefit;
     }
+
     public Page<Benefit> getAllBenefits(int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
         return benefitRepository.findAll(pageable);
