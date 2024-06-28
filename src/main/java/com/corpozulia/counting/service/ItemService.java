@@ -52,5 +52,16 @@ public class ItemService {
         }
         return false;
     }
+    /**
+     * Buscar items por su nombre.
+     *
+     * @param name Nombre a buscar en los items
+     * @param page Número de página (comienza desde 0)
+     * @param size Tamaño de la página
+     * @return Page con los items encontrados que coincidan con el nombre
+     */
+    public Page<Item> searchItemsByName(String name, int page, int size) {
+        return itemRepository.findByNameContainingIgnoreCase(name, PageRequest.of(page, size));
+    }
 }
 

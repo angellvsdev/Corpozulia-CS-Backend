@@ -29,7 +29,7 @@ public class DataInitializer implements ApplicationListener<ContextRefreshedEven
 			adminUser.setSurname("Apellido");
 			adminUser.setEmail("admin@example.com");
 			adminUser.setPassword(passwordEncoder.encode("admin123"));
-			adminUser.setIdNumber("12345678");
+			adminUser.setIdNumber("V12345678");
 			adminUser.setSector("Administration");
 			adminUser.setLocation("Headquarters");
 			adminUser.setGender("Male");

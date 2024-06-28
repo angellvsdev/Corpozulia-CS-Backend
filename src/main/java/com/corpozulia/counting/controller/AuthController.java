@@ -42,146 +42,152 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api")
 public class AuthController {
 
-    @Autowired
-    private AuthenticationManager authenticationManager;
+	@Autowired
+	private AuthenticationManager authenticationManager;
 
-    @Autowired
-    private JwtUtil jwtUtil;
+	@Autowired
+	private JwtUtil jwtUtil;
 
-    @Autowired
-    private UserService userService;
+	@Autowired
+	private UserService userService;
 
-    /**
-     * Endpoint para registrar un nuevo usuario.
-     *
-     * @param user   Usuario a registrar
-     * @param result Resultado de la validación
-     * @return ResponseEntity con el usuario creado o mensajes de error
-     */
-    @PostMapping("/register")
-    public ResponseEntity<?> registerUser(@Valid @RequestBody User user, BindingResult result) {
-        if (result.hasErrors()) {
-            return new ResponseEntity<>(result.getAllErrors(), HttpStatus.BAD_REQUEST);
-        }
+	/**
+	 * Endpoint para registrar un nuevo usuario.
+	 *
+	 * @param user   Usuario a registrar
+	 * @param result Resultado de la validación
+	 * @return ResponseEntity con el usuario creado o mensajes de error
+	 */
+	@PostMapping("/register")
+	public ResponseEntity<?> registerUser(@Valid @RequestBody User user, BindingResult result) {
+		if (result.hasErrors()) {
+			return new ResponseEntity<>(result.getAllErrors(), HttpStatus.BAD_REQUEST);
+		}
 
-        // Verificar si el correo electrónico ya está en uso
-        Optional<User> existingUserByEmail = userService.getUserByEmail(user.getEmail());
-        if (existingUserByEmail.isPresent()) {
-            return new ResponseEntity<>("El correo electrónico ya está registrado", HttpStatus.BAD_REQUEST);
-        }
+		// Verificar si el correo electrónico ya está en uso
+		Optional<User> existingUserByEmail = userService.getUserByEmail(user.getEmail());
+		if (existingUserByEmail.isPresent()) {
+			return new ResponseEntity<>(Map.of("error", "El correo electrónico ya está registrado"),
+					HttpStatus.BAD_REQUEST);
+		}
 
-        // Verificar si el número de cédula ya está en uso
-        Optional<User> existingUserByIdNumber = userService.getUserByIdNumber(user.getIdNumber());
-        if (existingUserByIdNumber.isPresent()) {
-            return new ResponseEntity<>("El número de cédula ya está registrado", HttpStatus.BAD_REQUEST);
-        }
+		// Verificar si el número de cédula ya está en uso
+		Optional<User> existingUserByIdNumber = userService.getUserByIdNumber(user.getIdNumber());
+		if (existingUserByIdNumber.isPresent()) {
+			return new ResponseEntity<>(Map.of("error", "El número de cédula ya está registrado"),
+					HttpStatus.BAD_REQUEST);
+		}
 
-        // Guardar el usuario en la base de datos
-        User savedUser = userService.createUser(user);
-        return new ResponseEntity<>(savedUser, HttpStatus.CREATED);
-    }
+		// Guardar el usuario en la base de datos
+		User savedUser = userService.createUser(user);
+		return new ResponseEntity<>(savedUser, HttpStatus.CREATED);
+	}
 
-    /**
-     * Endpoint para realizar la autenticación de usuarios.
-     *
-     * @param loginRequest Datos de inicio de sesión (username y password)
-     * @param response     Objeto HttpServletResponse para establecer la cookie
-     * @return ResponseEntity con el contexto del usuario autenticado o mensajes de error
-     */
-    @PostMapping("/login")
-    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest loginRequest, HttpServletResponse response) {
-        try {
-            Authentication authentication = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(
-                            loginRequest.getUsername(),
-                            loginRequest.getPassword()
-                    )
-            );
+	/**
+	 * Endpoint para realizar la autenticación de usuarios.
+	 *
+	 * @param loginRequest Datos de inicio de sesión (username y password)
+	 * @param response     Objeto HttpServletResponse para establecer la cookie
+	 * @return ResponseEntity con el contexto del usuario autenticado o mensajes de
+	 *         error
+	 */
+	@PostMapping("/login")
+	public ResponseEntity<?> login(@Valid @RequestBody LoginRequest loginRequest, HttpServletResponse response) {
+		try {
+			Authentication authentication = authenticationManager.authenticate(
+					new UsernamePasswordAuthenticationToken(loginRequest.getUsername(), loginRequest.getPassword()));
 
-            // Establecer la autenticación en el contexto de seguridad
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+			// Establecer la autenticación en el contexto de seguridad
+			SecurityContextHolder.getContext().setAuthentication(authentication);
 
-            // Generar token JWT
-            UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-            String jwt = jwtUtil.generateToken(userDetails);
+			// Generar token JWT
+			UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+			String jwt = jwtUtil.generateToken(userDetails);
 
-            // Guardar el token JWT en una cookie
-            Cookie cookie = new Cookie("jwt", jwt);
-            cookie.setMaxAge(24 * 60 * 60); // Duración de 24 horas (en segundos)
-            cookie.setPath("/"); // Establecer la ruta de la cookie
-            response.addCookie(cookie);
+			// Guardar el token JWT en una cookie
+			Cookie cookie = new Cookie("jwt", jwt);
+			cookie.setMaxAge(24 * 60 * 60); // Duración de 24 horas (en segundos)
+			cookie.setPath("/"); // Establecer la ruta de la cookie
+			response.addCookie(cookie);
 
-            // Obtener ID y rol del usuario
-            CustomUserDetails customUserDetails = (CustomUserDetails) userDetails;
+			// Obtener ID y rol del usuario
+			CustomUserDetails customUserDetails = (CustomUserDetails) userDetails;
 
-            // Crear objeto de respuesta
-            UserContext userContext = new UserContext(customUserDetails.getUser());
+			// Crear objeto de respuesta
+			UserContext userContext = new UserContext(customUserDetails.getUser());
 
-            return ResponseEntity.ok(userContext);
-        } catch (BadCredentialsException e) {
-            // Manejar error de credenciales inválidas
-            Map<String, String> errorResponse = new HashMap<>();
-            errorResponse.put("message", "Credenciales inválidas");
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
-        }
-    }
+			return ResponseEntity.ok(userContext);
+		} catch (BadCredentialsException e) {
+			// Manejar error de credenciales inválidas
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Credenciales inválidas"));
+		}
+	}
 
-    /**
-     * Manejador para excepciones de validación de campos.
-     *
-     * @param ex Excepción de validación de campos
-     * @return Mapa con los errores de validación
-     */
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public Map<String, String> handleValidationExceptions(MethodArgumentNotValidException ex) {
-        BindingResult result = ex.getBindingResult();
-        Map<String, String> errors = new HashMap<>();
-        for (FieldError error : result.getFieldErrors()) {
-            errors.put(error.getField(), error.getDefaultMessage());
-        }
-        return errors;
-    }
+	@PostMapping("/logout")
+	public ResponseEntity<?> logout(HttpServletResponse response) {
+		// Eliminar la cookie JWT
+		Cookie cookie = new Cookie("jwt", null);
+		cookie.setMaxAge(0); // Establecer el tiempo de vida a 0 segundos para eliminarla
+		cookie.setPath("/"); // Establecer la misma ruta que se utilizó al crear la cookie
+		response.addCookie(cookie);
 
-    /**
-     * Manejador para excepción cuando no se encuentra el usuario durante la autenticación.
-     *
-     * @param ex Excepción de usuario no encontrado
-     * @return Mapa con mensaje de error
-     */
-    @ExceptionHandler(UsernameNotFoundException.class)
-    @ResponseStatus(HttpStatus.UNAUTHORIZED)
-    public Map<String, String> handleUsernameNotFoundException(UsernameNotFoundException ex) {
-        Map<String, String> errorResponse = new HashMap<>();
-        errorResponse.put("message", "Usuario no encontrado");
-        return errorResponse;
-    }
+		// Limpiar el contexto de seguridad
+		SecurityContextHolder.clearContext();
 
-    /**
-     * Manejador para excepción de credenciales inválidas durante la autenticación.
-     *
-     * @param ex Excepción de credenciales inválidas
-     * @return Mapa con mensaje de error
-     */
-    @ExceptionHandler(BadCredentialsException.class)
-    @ResponseStatus(HttpStatus.UNAUTHORIZED)
-    public Map<String, String> handleBadCredentialsException(BadCredentialsException ex) {
-        Map<String, String> errorResponse = new HashMap<>();
-        errorResponse.put("message", "Credenciales inválidas");
-        return errorResponse;
-    }
+		return ResponseEntity.ok(Map.of("message", "Sesión cerrada exitosamente"));
+	}
 
-    /**
-     * Manejador para excepciones generales no manejadas.
-     *
-     * @param ex Excepción general
-     * @return Mapa con mensaje de error
-     */
-    @ExceptionHandler(Exception.class)
-    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
-    public Map<String, String> handleGeneralException(Exception ex) {
-        Map<String, String> errorResponse = new HashMap<>();
-        errorResponse.put("message", "Ocurrió un error inesperado");
-        return errorResponse;
-    }
+	/**
+	 * Manejador para excepciones de validación de campos.
+	 *
+	 * @param ex Excepción de validación de campos
+	 * @return Mapa con los errores de validación
+	 */
+	@ExceptionHandler(MethodArgumentNotValidException.class)
+	@ResponseStatus(HttpStatus.BAD_REQUEST)
+	public Map<String, String> handleValidationExceptions(MethodArgumentNotValidException ex) {
+		BindingResult result = ex.getBindingResult();
+		Map<String, String> errors = new HashMap<>();
+		for (FieldError error : result.getFieldErrors()) {
+			errors.put("Error", error.getDefaultMessage());
+		}
+		return errors;
+	}
+
+	/**
+	 * Manejador para excepción cuando no se encuentra el usuario durante la
+	 * autenticación.
+	 *
+	 * @param ex Excepción de usuario no encontrado
+	 * @return Mapa con mensaje de error
+	 */
+	@ExceptionHandler(UsernameNotFoundException.class)
+	@ResponseStatus(HttpStatus.UNAUTHORIZED)
+	public Map<String, String> handleUsernameNotFoundException(UsernameNotFoundException ex) {
+		return Map.of("error", "Usuario no encontrado");
+	}
+
+	/**
+	 * Manejador para excepción de credenciales inválidas durante la autenticación.
+	 *
+	 * @param ex Excepción de credenciales inválidas
+	 * @return Mapa con mensaje de error
+	 */
+	@ExceptionHandler(BadCredentialsException.class)
+	@ResponseStatus(HttpStatus.UNAUTHORIZED)
+	public Map<String, String> handleBadCredentialsException(BadCredentialsException ex) {
+		return Map.of("error", "Credenciales inválidas");
+	}
+
+	/**
+	 * Manejador para excepciones generales no manejadas.
+	 *
+	 * @param ex Excepción general
+	 * @return Mapa con mensaje de error
+	 */
+	@ExceptionHandler(Exception.class)
+	@ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
+	public Map<String, String> handleGeneralException(Exception ex) {
+		return Map.of("error", "Ocurrió un error inesperado");
+	}
 }
